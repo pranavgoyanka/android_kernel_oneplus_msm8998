@@ -1,0 +1,65 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the quartz branch
+on:
+	push:
+		branches: [ test-06102020 ]
+	pull_request:
+		branches: [ test-06102020 ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+	# This workflow contains a single job called "build"
+	build:
+		# The type of runner that the job will run on
+		runs-on: ubuntu-latest
+
+		# Steps represent a sequence of tasks that will be executed as part of the job
+		steps:
+			# Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+			- uses: actions/checkout@v2
+
+			# Runs a single command using the runners shell
+			- name: Run a one-line script
+				run: echo Running build script!
+
+			# Runs a set of commands using the runners shell
+			- name: Get clang 
+				run: |
+					echo Pulling clang
+					mkdir clang && cd clang
+					wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/android-10.0.0_r3/clang-r353983c.tar.gz
+					tar -xvf clang-r353983c.tar.gz
+					cd ..
+
+			- name: Get NDK
+				run: |
+					git clone --depth=1  https://android.googlesource.com/platform/ndk ndk
+
+			- name: Setting up environment
+				run: |
+					export ARCH=arm64
+					export SUBARCH=arm64
+					export CLANG_PATH=${pwd}/clang/clang-r353983c/bin
+					export PATH=${CLANG_PATH}:${PATH}
+					export CLANG_TRIPLE=aarch64-linux-gnu-
+					export CROSS_COMPILE=${pwd}/ndk/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-
+					export CROSS_COMPILE_ARM32=/${pwd}/ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-
+			
+			- name: Cleaning directories
+				run: |
+					rm -rf out
+					echo clean
+			
+			- name: Making .config
+				run: make O=out ARCH=arm64 paranoid_op5_defconfig
+
+			# - name: make O=out ARCH=arm64 menuconfig
+			- name: Building kernel
+				run: |
+					make -j$(nproc --all) O=out \
+          	ARCH=arm64 \
+            CC=clang 
